@@ -14,15 +14,17 @@ import UserCheck from 'lucide-react/dist/esm/icons/user-check';
 import Users from 'lucide-react/dist/esm/icons/users';
 
 function Profile() {
-  const { id } = useParams(); 
-  const currentUserId = localStorage.getItem("userId"); 
-  const mongoId = localStorage.getItem("mongoId"); 
+  const { id } = useParams();
+  const currentUserId = localStorage.getItem("userId");
+  const mongoId = localStorage.getItem("mongoId");
   const navigate = useNavigate();
 
   const [profileUser, setProfileUser] = useState(null);
   const [snippets, setSnippets] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [error, setError] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
 
   const fetchUser = useCallback(async () => {
     try {
@@ -30,7 +32,7 @@ function Profile() {
       if (!res.ok) throw new Error("User not found");
       const data = await res.json();
       setProfileUser(data);
-      
+
       if (data.followers && mongoId) {
         setIsFollowing(data.followers.includes(mongoId));
       }
@@ -53,9 +55,33 @@ function Profile() {
   useEffect(() => { fetchUser(); }, [fetchUser]);
   useEffect(() => { fetchSnippets(); }, [fetchSnippets]);
 
+const handleImageChange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("profilePicture", file);
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/users/update-profile/${profileUser.userId}`,
+      {
+        method: "PATCH",
+        body: formData,
+      }
+    );
+
+    if (!res.ok) throw new Error("Upload failed");
+
+    fetchUser(); // refresh UI
+  } catch (err) {
+    console.log(err);
+  }
+};
+
   const handleFollow = async () => {
     const prev = isFollowing;
-    setIsFollowing(!prev); 
+    setIsFollowing(!prev);
 
     try {
       const res = await fetch(`${BASE_URL}/users/follow/${profileUser._id}`, {
@@ -64,9 +90,9 @@ function Profile() {
         body: JSON.stringify({ currentUserId: mongoId })
       });
       if (!res.ok) throw new Error();
-      fetchUser(); 
+      fetchUser();
     } catch (err) {
-      setIsFollowing(prev); 
+      setIsFollowing(prev);
     }
   };
 
@@ -83,10 +109,10 @@ function Profile() {
   return (
     <div className="bg-[#0b0f1a] pb-20 min-h-screen text-white">
       <div className="bg-gradient-to-b from-blue-900/20 to-[#0b0f1a] h-44" />
-      
+
       <div className="mx-auto px-6 max-w-6xl">
         <div className="relative bg-white/5 shadow-2xl backdrop-blur-3xl -mt-20 p-8 border border-white/10 rounded-3xl">
-          
+
           <div className="flex md:flex-row flex-col items-center md:items-start gap-10">
             {/* Avatar */}
             <div className="relative shrink-0">
@@ -98,8 +124,19 @@ function Profile() {
               {isOwnProfile && (
                 <label className="right-2 bottom-2 absolute bg-blue-600 hover:bg-blue-500 shadow-lg p-2 rounded-lg transition cursor-pointer">
                   <Camera size={16} />
-                  <input type="file" hidden />
+                  <input
+                    type="file"
+                    hidden
+                    accept="image/*"
+                    onChange={handleImageChange}
+                  />
                 </label>
+              )}
+
+              {uploading && (
+                <p className="mt-2 text-blue-400 text-xs">
+                  Uploading...
+                </p>
               )}
             </div>
 
@@ -113,19 +150,19 @@ function Profile() {
               {/* STATS COUNTERS */}
               <div className="flex justify-center md:justify-start gap-10 mb-8 pb-6 border-white/5 border-b">
                 <div className="group cursor-default">
-                   <span className="block font-black text-white text-2xl">{snippets.length}</span>
-                   <span className="font-bold text-[10px] text-gray-500 uppercase tracking-widest">Snippets</span>
+                  <span className="block font-black text-white text-2xl">{snippets.length}</span>
+                  <span className="font-bold text-[10px] text-gray-500 uppercase tracking-widest">Snippets</span>
                 </div>
-                <div 
+                <div
                   onClick={() => navigate(`/followers/${profileUser._id}`)}
                   className="group cursor-pointer"
                 >
-                   <span className="block font-black text-white group-hover:text-blue-400 text-2xl transition">
-                     {profileUser.followers?.length || 0}
-                   </span>
-                   <span className="flex justify-center md:justify-start items-center gap-1 font-bold text-[10px] text-gray-500 group-hover:text-blue-400 uppercase tracking-widest transition">
-                     Followers <Users size={10} />
-                   </span>
+                  <span className="block font-black text-white group-hover:text-blue-400 text-2xl transition">
+                    {profileUser.followers?.length || 0}
+                  </span>
+                  <span className="flex justify-center md:justify-start items-center gap-1 font-bold text-[10px] text-gray-500 group-hover:text-blue-400 uppercase tracking-widest transition">
+                    Followers <Users size={10} />
+                  </span>
                 </div>
               </div>
 
@@ -162,13 +199,12 @@ function Profile() {
                   </button>
                 </>
               ) : (
-                <button 
-                  onClick={handleFollow} 
-                  className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold transition shadow-xl ${
-                    isFollowing 
-                    ? "bg-white/10 text-white border border-white/20" 
+                <button
+                  onClick={handleFollow}
+                  className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-bold transition shadow-xl ${isFollowing
+                    ? "bg-white/10 text-white border border-white/20"
                     : "bg-blue-600 hover:bg-blue-500 shadow-blue-900/40"
-                  }`}
+                    }`}
                 >
                   {isFollowing ? (
                     <><UserCheck size={20} /> Following</>
